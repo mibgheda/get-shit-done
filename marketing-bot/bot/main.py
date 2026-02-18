@@ -8,12 +8,14 @@ Supports two modes:
 
 import asyncio
 import logging
+import traceback
 
 import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.types import ErrorEvent
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
@@ -35,6 +37,10 @@ async def on_startup(bot: Bot) -> None:
             secret_token=settings.webhook_secret,
         )
         log.info("Webhook set", url=settings.webhook_url)
+    else:
+        # Polling mode: clear any stale webhook so Telegram sends updates to us
+        await bot.delete_webhook(drop_pending_updates=True)
+        log.info("Webhook cleared, polling mode active")
 
 
 async def on_shutdown(bot: Bot) -> None:
@@ -47,6 +53,15 @@ def create_bot() -> Bot:
     return Bot(
         token=settings.telegram_bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+    )
+
+
+async def on_error(event: ErrorEvent) -> None:
+    log.error(
+        "Unhandled handler exception",
+        update_type=event.update.event_type if event.update else "unknown",
+        error=repr(event.exception),
+        traceback=traceback.format_exc(),
     )
 
 
@@ -64,6 +79,7 @@ def create_dispatcher() -> Dispatcher:
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
+    dp.errors.register(on_error)
 
     return dp
 
