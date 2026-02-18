@@ -128,10 +128,6 @@ async def add_message(
     session.add(msg)
     await session.flush()
 
-    # Keep in-memory list in sync to avoid re-querying
-    if business.messages is not None:
-        business.messages.append(msg)
-
     return msg
 
 
