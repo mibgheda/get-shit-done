@@ -115,6 +115,9 @@ async def handle_onboarding_answers(
     # Save user's answer
     await add_message(session, business, "user", message.text)
 
+    # Reload with eager-loaded messages so claude_chat can access them (avoids lazy-load in async)
+    business = await get_active_business(session, user.id, business.id)
+
     await message.bot.send_chat_action(message.chat.id, "typing")
 
     # Claude determines the level
